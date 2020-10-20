@@ -67,9 +67,7 @@ def file_parse_lkml(file_paths: list):
     response_list = []
     for path in file_paths:
         with open(path, 'r') as file:
-            print(lkml.load(file))
-            # pass
-    # return response_list
+    return response_list
 
 
 def find_html_lkml_objects(lookml_list: list):
