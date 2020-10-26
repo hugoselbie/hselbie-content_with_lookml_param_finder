@@ -1,3 +1,4 @@
+from os import error
 import looker_sdk
 import pandas as pd
 import glob
@@ -7,9 +8,16 @@ import configparser as ConfigParser
 from github import Github
 import base64
 import csv
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--ini', type=str)
+parser.add_argument('--repo', type=str)
+parser.add_argument('--lookml_param', type=str)
+args = parser.parse_args()
 
 
-ini_file = 'looker.ini'
+ini_file = args.ini
 config = ConfigParser.RawConfigParser(allow_no_value=True)
 config.read(ini_file)
 
@@ -30,8 +38,11 @@ def github_lkml(repo_name: str):
         [list]: list of lookml elements in repo
     """
     g = Github(github_token)
-    authed_user = g.get_user()
-    repo = authed_user.get_repo(repo_name)
+    # authed_user = g.get_user()
+
+    repo = g.get_repo(repo_name)
+  
+    # print(repo)
     contents = repo.get_contents("", ref='master')
     lookml = []
     while contents:
@@ -39,8 +50,11 @@ def github_lkml(repo_name: str):
         if file_content.type == "dir":
             contents.extend(repo.get_contents(file_content.path))
         else:
-            x = base64.b64decode(file_content.content).decode('ascii')
-            lookml.append(lkml.load(x))
+            x = base64.b64decode(file_content.content).decode('UTF-8')
+            try:
+                lookml.append(lkml.load(x))
+            except SyntaxError:
+                print(f'you have a lookml syntax error in {file_content} and your file cannot be parsed')
 
     return lookml
 
@@ -74,7 +88,7 @@ def file_parse_lkml(file_paths: list):
     return response_list
 
 
-def find_html_lkml_objects(lookml_list: list):
+def find_param_lkml_objects(lookml_list: list, param: str):
     """[summary]
 
     Args:
@@ -89,7 +103,7 @@ def find_html_lkml_objects(lookml_list: list):
         parsed = lookml_object
         try:
             parsed['views']
-        
+
             view_name = parsed['views'][0]['name']
 
             elements = ['dimension_groups', 'dimensions', 'measures']
@@ -99,7 +113,7 @@ def find_html_lkml_objects(lookml_list: list):
                 if lkml_element in elements:
 
                     for obj in parsed['views'][0][lkml_element]:
-                        if 'label' in obj.keys():
+                        if param in obj.keys():
                             fields.append(view_name+'.'+obj['name'])
             html_elements[view_name] = fields
         except KeyError:
@@ -131,11 +145,11 @@ def compare_html_objects(queryCompare: dict):
 
     functionResponse = []
 
-    file = open('content_check.csv', 'w', newline ='') 
-    with file: 
-    # identifying header   
-        header = ['Dashboard Title', 'Dashboard ID', 'Element Title'] 
-        writer = csv.DictWriter(file, fieldnames = header) 
+    file = open('content_check.csv', 'w', newline='')
+    with file:
+
+        header = ['Dashboard Title', 'Dashboard ID', 'Element Title']
+        writer = csv.DictWriter(file, fieldnames=header)
         writer.writeheader()
 
         for row in df.itertuples():
@@ -146,9 +160,11 @@ def compare_html_objects(queryCompare: dict):
                     for view, dimensions in queryCompare.items():
                         for dim in dimensions:
                             if dim == field:
-                                functionResponse.append(f'dashboard title = {row[1]}, dashboard id = {row[2]}, element title = {row[3]}')
+                                functionResponse.append(
+                                    f'dashboard title = {row[1]}, dashboard id = {row[2]}, element title = {row[3]}'
+                                    )
                                 writer.writerow({
-                                    'Dashboard Title':row[1],
+                                    'Dashboard Title': row[1],
                                     'Dashboard ID': row[2],
                                     'Element Title': row[3]
                                 })
@@ -162,9 +178,9 @@ def compare_html_objects(queryCompare: dict):
 
 
 if __name__ == "__main__":
-    gitoutput = github_lkml('monkey100')
-    html_objects = find_html_lkml_objects(lookml_list=gitoutput)
+    gitoutput = github_lkml(args.repo)
+    html_objects = find_param_lkml_objects(lookml_list=gitoutput, param=args.lookml_param)
     compare_html_objects(queryCompare=html_objects)
-    print(compare_html_objects)
+
+    # print(compare_html_objects)
     # s(queryCompare=find_html_lkml_objects(lookml_list=github_lkml('monkey100'))))
-    
