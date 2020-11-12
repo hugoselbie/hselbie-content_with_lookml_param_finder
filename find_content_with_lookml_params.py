@@ -21,7 +21,6 @@ def github_lkml(repo_name: str):
         [list]: list of lookml elements in repo
     """
     g = Github(github_token)
-    # authed_user = g.get_user()
 
     repo = g.get_repo(repo_name)
 
