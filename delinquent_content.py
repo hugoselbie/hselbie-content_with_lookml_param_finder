@@ -26,6 +26,31 @@ def backupDir(content_type: str):
         print(f"Creation of the directory {path} has failed")
 
 
+def get_last_accessed_content_dates(content_type: str, delinquent_days: int):
+    query_config = models.WriteQuery(
+        model="system__activity",
+        view="content_usage",
+        fields=[
+            "content_usage.last_accessed_date",
+            "content_usage.content_id",
+            "content_usage.content_title",
+            "content_usage.content_type"
+            ],
+        filters={
+            "content_usage.last_accessed_date": f"before {delinquent_days} days ago",
+            "content_usage.content_type": content_type
+            },
+        limit=' 5000'
+    )
+    query_response = sdk.run_inline_query(
+        result_format='json',
+        body=query_config
+    )
+    query_response = json.loads(query_response)
+
+    return query_response
+
+
 def deliquent_content(content_type: str, delinquent_days: int):
     """identify content with delinquent days of x. passed into api call for run inline query
     this input is then used to both delete the content and use gzr to export the json
@@ -40,85 +65,57 @@ def deliquent_content(content_type: str, delinquent_days: int):
     """
     if content_type == 'dashboard':
         backupDir('dashboard')
-
         delinquent_dashboards = []
-        dashboard_config = models.WriteQuery(
-            model="system__activity",
-            view="content_usage",
-            fields=[
-                "dashboard.id",
-                "history.most_recent_query_date"
-                 ],
-            filters={
-                "history.most_recent_query_date": f"before {delinquent_days} days ago",
-                "dashboard.id": "NOT NULL"
-                },
-            limit='5000'
+        dashboard_response = get_last_accessed_content_dates(
+            content_type=content_type,
+            delinquent_days=delinquent_days
             )
-        dashboard_response = sdk.run_inline_query(
-            result_format='json',
-            body=dashboard_config
-            )
-        dashboard_response = json.loads(dashboard_response)
-    
+
         for dashboard in range(0, len(dashboard_response)):
-            delinquent_dashboards.append(dashboard_response[dashboard]['dashboard.id'])
+            delinquent_dashboards.append(dashboard_response[dashboard]['content_usage.content_id'])
             subprocess.run(
                 ['gzr',
                     'dashboard',
                     'cat',
-                    str(dashboard_response[dashboard]['dashboard.id']),
+                    str(dashboard_response[dashboard]['content_usage.content_id']),
                     '--host',
                     GZR_INSTANCE_NAME,
                     '--dir',
                     f'{content_type}_backup']
                 )
-            print(f'''backing up dashboard id {dashboard_response[dashboard]["dashboard.id"]}
+            print(f'''backing up dashboard id {dashboard_response[dashboard]["content_usage.content_id"]}
                         in folder {content_type}_backup''')
             # Comment out the next 2 lines to delete dashboards!
             # print(f'''deleting dashboard id
-            #           {dashboard_response[dashboard]["dashboard.id"]}''')
-            # sdk.delete_dashboard(str(dashboard_response[dashboard]['dashboard.id']))
+            #           {dashboard_response[dashboard]["content_usage.content_id"]}''')
+            # sdk.delete_dashboard(str(dashboard_response[dashboard]['content_usage.content_id']))
         return delinquent_dashboards
 
     elif content_type == 'look':
         backupDir('look')
-
         delinquent_looks = []
-        look_config = models.WriteQuery(
-            model="system__activity",
-            view="history",
-            fields=[
-                "look.id",
-                "history.most_recent_query_date"
-                ],
-            filters={
-                "history.most_recent_run_at_date": f"before {delinquent_days} days ago",
-                },
-            limit='5000'
+        look_response = get_last_accessed_content_dates(
+            content_type=content_type,
+            delinquent_days=delinquent_days
             )
-        look_response = sdk.run_inline_query(
-            result_format='json',
-            body=look_config
-            )
-        look_response = json.loads(look_response)
+
         for look in range(0, len(look_response)):
-            delinquent_looks.append(look_response[look]['look.id'])
+            delinquent_looks.append(look_response[look]['content_usage.content_id'])
             subprocess.run(
                 ['gzr',
                     'look',
                     'cat',
-                    str(look_response[look]['look.id']),
+                    str(look_response[look]['content_usage.content_id']),
                     '--host',
                     GZR_INSTANCE_NAME,
                     '--dir',
                     f'{content_type}_backup'])
-            print(f'''backing up dashboard id {look_response[look]["look.id"]}
+            print(f'''backing up dashboard id {look_response[look]["content_usage.content_id"]}
                         in folder {content_type}_backup''')
 
             # Comment out the next 2 lines to delete looks!
-            # print(f'deleting look id {look_response[look]["look.id"]}')
-            # sdk.delete_look(look_response[look]['look.id'])
+            # print(f'deleting look id {look_response[look]["content_usage.content_id"]}')
+            # sdk.delete_look(look_response[look]['content_usage.content_id'])
         return delinquent_looks
 
 
@@ -209,6 +206,6 @@ if __name__ == "__main__":
     sdk = looker_sdk.init31(config_file=ini_file)
 
     # example usage
-    # deliquent_content(content_type='dashboard', delinquent_days=30)
-    print(find_delinquent_content_view_count(90, 1))
+    print(deliquent_content(content_type='look', delinquent_days=30))
+    # print(find_delinquent_content_view_count(90, 1))
     # print(delete_content_from_csv('clients/sunrun/test.csv', delete=False))
