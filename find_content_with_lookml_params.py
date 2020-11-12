@@ -1,4 +1,3 @@
-from os import error
 import looker_sdk
 import pandas as pd
 import glob
@@ -9,22 +8,6 @@ from github import Github
 import base64
 import csv
 import argparse
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--ini', type=str)
-parser.add_argument('--repo', type=str)
-parser.add_argument('--lookml_param', type=str)
-args = parser.parse_args()
-
-
-ini_file = args.ini
-config = ConfigParser.RawConfigParser(allow_no_value=True)
-config.read(ini_file)
-
-github_token = config.get('Github', 'github_token')
-sdk = looker_sdk.init31(config_file=ini_file)
-
-g = Github(github_token)
 
 
 def github_lkml(repo_name: str):
@@ -41,9 +24,9 @@ def github_lkml(repo_name: str):
     # authed_user = g.get_user()
 
     repo = g.get_repo(repo_name)
-  
-    # print(repo)
+
     contents = repo.get_contents("", ref='master')
+    print(contents)
     lookml = []
     while contents:
         file_content = contents.pop(0)
@@ -54,7 +37,9 @@ def github_lkml(repo_name: str):
             try:
                 lookml.append(lkml.load(x))
             except SyntaxError:
-                print(f'you have a lookml syntax error in {file_content} and your file cannot be parsed')
+                print(f'''you have a lookml syntax error in {file_content}
+                and your file cannot be parsed
+                ''')
 
     return lookml
 
@@ -161,7 +146,9 @@ def compare_html_objects(queryCompare: dict):
                         for dim in dimensions:
                             if dim == field:
                                 functionResponse.append(
-                                    f'dashboard title = {row[1]}, dashboard id = {row[2]}, element title = {row[3]}'
+                                    f'''dashboard title = {row[1]},
+                                    dashboard id = {row[2]},
+                                    element title = {row[3]}'''
                                     )
                                 writer.writerow({
                                     'Dashboard Title': row[1],
@@ -178,6 +165,23 @@ def compare_html_objects(queryCompare: dict):
 
 
 if __name__ == "__main__":
+    """
+    Command line parser arguments
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--ini', type=str)
+    parser.add_argument('--repo', type=str)
+    parser.add_argument('--lookml_param', type=str)
+    args = parser.parse_args()
+
+
+    ini_file = args.ini
+    config = ConfigParser.RawConfigParser(allow_no_value=True)
+    config.read_file(ini_file)
+
+
+    github_token = config.get('Github', 'github_token')
+    sdk = looker_sdk.init31(config_file=ini_file)
     gitoutput = github_lkml(args.repo)
     html_objects = find_param_lkml_objects(lookml_list=gitoutput, param=args.lookml_param)
     compare_html_objects(queryCompare=html_objects)
