@@ -173,11 +173,10 @@ if __name__ == "__main__":
     parser.add_argument('--lookml_param', type=str)
     args = parser.parse_args()
 
-
     ini_file = args.ini
-    config = ConfigParser.RawConfigParser(allow_no_value=True)
-    config.read_file(ini_file)
 
+    config = ConfigParser.RawConfigParser(allow_no_value=True)
+    config.read(ini_file)
 
     github_token = config.get('Github', 'github_token')
     sdk = looker_sdk.init31(config_file=ini_file)
