@@ -60,6 +60,7 @@ def parse_broken_content(base_url, broken_content, space_data):
             ).encode()
         ).hexdigest()
         data = {
+            "content_id": str(id),
             "unique_id": unique_id,
             "content_type": content_type,
             "name": name,
@@ -75,7 +76,7 @@ def parse_broken_content(base_url, broken_content, space_data):
     return output
 
 if __name__ == "__main__":
-    ini_file = 'looker.ini'
+    ini_file = 'ini/looker.ini'
     config = ConfigParser.RawConfigParser(allow_no_value=True)
     config.read(ini_file)
 
@@ -86,5 +87,35 @@ if __name__ == "__main__":
     space = get_space_data()
 
     test=parse_broken_content(broken_content=x, space_data=space, base_url='https://34.94.160.95')
-    df = pd.DataFrame(test)
-    print(df.head())
+    
+    x = set([test[i]['content_id'] for i in range(0,len(test))])
+    x = [21]
+
+    dash = sdk.dashboard('21')
+
+    user_id = 1
+
+    user_email = sdk.user(user_id=1)
+    print(user_email)
+    # splan = models.WriteScheduledPlan(
+    #     name='test_1',
+    #     user_id=1,
+    #     dashboard_id=21,
+    #     scheduled_plan_destination=[
+    #   {
+    #     "id": 7,
+    #     "scheduled_plan_id": 6,
+    #     "format": "csv_zip",
+    #     "address": "hugoselbie@google.com",
+    #     "type": "email",
+    #     "message": "please do something with this content"
+    #   }
+    # ]
+
+    # )
+
+    # print(sdk.scheduled_plan_run_once(body=splan))
+    
+    # print(test)
+    # df = pd.DataFrame(test)
+    # df.to_csv('output.csv')
