@@ -1,11 +1,8 @@
-from looker_sdk import models, error
+from looker_sdk import models
 import looker_sdk
 import configparser as ConfigParser
 import hashlib
-import csv
-import os
-import subprocess
-import pandas as pd
+
 
 def get_space_data():
     """Collect all space information"""
@@ -75,6 +72,71 @@ def parse_broken_content(base_url, broken_content, space_data):
         output.append(data)
     return output
 
+
+def sendContentOnce(**kwargs):
+    content_type = kwargs.get('content_type')
+    content_id = kwargs.get('content_id')
+    user_id = kwargs.get('user_id')
+    plan_id = kwargs.get('plan_id')
+    user_email = kwargs.get('user_email')
+    
+    plan_destination = [
+                        {
+                            "id": 10,
+                            "scheduled_plan_id": plan_id,
+                            "format": "csv_zip",
+                            "address": f"{user_email}",
+                            "type": "email",
+                            "message": "please update or delete your content",
+                        }
+                    ]
+    if content_type == 'dashboards':
+        splan = models.WriteScheduledPlan(
+                        name='test1',
+                        dashboard_id=content_id,
+                        user_id=user_id,
+                        scheduled_plan_destination=plan_destination
+                    )
+    elif content_type == 'look':
+        splan = models.WriteScheduledPlan(
+                name='test1',
+                look_id=content_id,
+                user_id=user_id,
+                scheduled_plan_destination=plan_destination
+            )
+
+    sdk.scheduled_plan_run_once(body=splan)
+    return f'notification for {content_id} has been sent to {user_email}'
+
+
+def sendContentAlert(broken_content: list):
+    for content in range(0, len(broken_content)):
+        if broken_content[content]['content_type'] == 'dashboards':
+            user_id = sdk.dashboard(str(broken_content[content]['content_id'])).user_id
+            user_email = sdk.user(user_id=user_id).email
+
+            sendContentOnce(
+                user_id=user_id,
+                user_email=user_email,
+                plan_id=content,
+                content_id=broken_content[content]['content_id'],
+                content_type='dashboards'
+                )
+
+        elif broken_content[content]['content_type'] == 'looks':
+            user_id = sdk.look(broken_content[content]['content_id']).user_id
+            user_email = sdk.user(user_id=user_id).email
+
+            sendContentOnce(
+                user_id=user_id,
+                user_email=user_email,
+                plan_id=content,
+                content_id=broken_content[content]['content_id'],
+                content_type='look'
+            )
+    return 'complete'
+
+
 if __name__ == "__main__":
     ini_file = 'ini/looker.ini'
     config = ConfigParser.RawConfigParser(allow_no_value=True)
@@ -86,36 +148,21 @@ if __name__ == "__main__":
     x = sdk.content_validation().content_with_errors
     space = get_space_data()
 
-    test=parse_broken_content(broken_content=x, space_data=space, base_url='https://34.94.160.95')
-    
-    x = set([test[i]['content_id'] for i in range(0,len(test))])
-    x = [21]
+    broken_content = parse_broken_content(
+        broken_content=x,
+        space_data=space,
+        base_url='https://34.94.160.95'
+        )
 
-    dash = sdk.dashboard('21')
+    # print(sendContentAlert(broken_content=broken_content))
 
-    user_id = 1
-
-    user_email = sdk.user(user_id=1)
-    print(user_email)
-    # splan = models.WriteScheduledPlan(
-    #     name='test_1',
-    #     user_id=1,
-    #     dashboard_id=21,
-    #     scheduled_plan_destination=[
-    #   {
-    #     "id": 7,
-    #     "scheduled_plan_id": 6,
-    #     "format": "csv_zip",
-    #     "address": "hugoselbie@google.com",
-    #     "type": "email",
-    #     "message": "please do something with this content"
-    #   }
-    # ]
-
-    # )
-
-    # print(sdk.scheduled_plan_run_once(body=splan))
-    
+    print(test(
+        user_id=5,
+        user_email='hseli',
+        plan_id=6,
+        content_id=45,
+        content_type='test'
+    ))
     # print(test)
     # df = pd.DataFrame(test)
     # df.to_csv('output.csv')
