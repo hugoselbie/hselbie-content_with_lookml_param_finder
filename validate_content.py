@@ -2,6 +2,10 @@ from looker_sdk import models
 import looker_sdk
 import configparser as ConfigParser
 import hashlib
+import logging
+
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 def get_space_data():
@@ -79,66 +83,88 @@ def sendContentOnce(**kwargs):
     user_id = kwargs.get('user_id')
     plan_id = kwargs.get('plan_id')
     user_email = kwargs.get('user_email')
-    
+    message = kwargs.get('message')
+    logging.debug(f'Assigned variables content_type:{content_type}')
+
     plan_destination = [
-                        {
-                            "id": 10,
-                            "scheduled_plan_id": plan_id,
-                            "format": "csv_zip",
-                            "address": f"{user_email}",
-                            "type": "email",
-                            "message": "please update or delete your content",
-                        }
-                    ]
-    if content_type == 'dashboards':
+        {
+            "id": 10,
+            "scheduled_plan_id": plan_id,
+            "format": "inline_json",
+            "address": f"{user_email}",
+            "type": "email",
+            "message": f"{message}",
+        }
+    ]
+    if content_type == 'dashboard':
         splan = models.WriteScheduledPlan(
-                        name='test1',
-                        dashboard_id=content_id,
-                        user_id=user_id,
-                        scheduled_plan_destination=plan_destination
-                    )
+            name='test1',
+            dashboard_id=content_id,
+            user_id=user_id,
+            require_no_results=False,
+            require_change=False,
+            require_results=True,
+            include_links=False,
+            scheduled_plan_destination=plan_destination
+        )
+        sdk.scheduled_plan_run_once(body=splan)
     elif content_type == 'look':
         splan = models.WriteScheduledPlan(
-                name='test1',
-                look_id=content_id,
-                user_id=user_id,
-                scheduled_plan_destination=plan_destination
-            )
+            name='test1',
+            look_id=content_id,
+            user_id=user_id,
+            require_no_results=False,
+            require_change=False,
+            require_results=True,
+            include_links=False,
+            scheduled_plan_destination=plan_destination
+        )
+        # sdk.scheduled_plan_run_once(body=splan)
 
-    sdk.scheduled_plan_run_once(body=splan)
     return f'notification for {content_id} has been sent to {user_email}'
 
 
 def sendContentAlert(broken_content: list):
+    logging.debug('Initializing sendContentAlert')
     for content in range(0, len(broken_content)):
-        if broken_content[content]['content_type'] == 'dashboards':
-            user_id = sdk.dashboard(str(broken_content[content]['content_id'])).user_id
+        logging.debug(broken_content[content]['content_type'])
+        logging.debug(broken_content[content]['content_id'])
+        if broken_content[content]['content_type'] == 'dashboard':
+            dashboard_metadata = sdk.dashboard(str(broken_content[content]['content_id']))
+            user_id = dashboard_metadata.user_id
             user_email = sdk.user(user_id=user_id).email
+            content_url = broken_content[content]['content_id']
+            logging.debug(f'variables set user_id:{user_id}, user_email:{user_email}, content_url {content_url}')
 
             sendContentOnce(
                 user_id=user_id,
                 user_email=user_email,
                 plan_id=content,
-                content_id=broken_content[content]['content_id'],
-                content_type='dashboards'
-                )
-
-        elif broken_content[content]['content_type'] == 'looks':
-            user_id = sdk.look(broken_content[content]['content_id']).user_id
-            user_email = sdk.user(user_id=user_id).email
-
-            sendContentOnce(
-                user_id=user_id,
-                user_email=user_email,
-                plan_id=content,
-                content_id=broken_content[content]['content_id'],
-                content_type='look'
+                content_id=19,
+                content_type='dashboards',
+                message=f'please fix or delete your content {content_url}'
             )
+
+        elif broken_content[content]['content_type'] == 'look':
+            look_metadata = sdk.look(broken_content[content]['content_id'])
+            user_id = look_metadata.user_id
+            content_url = look_metadata.short_url
+            user_email = sdk.user(user_id=user_id).email
+
+            sendContentOnce(
+                user_id=user_id,
+                user_email=user_email,
+                plan_id=content,
+                content_id=5,
+                content_type='look',
+                message=f'please fix or delete your content {content_url}'
+            )
+
     return 'complete'
 
 
 if __name__ == "__main__":
-    ini_file = 'ini/looker.ini'
+    ini_file = '/usr/local/google/home/hugoselbie/code_sample/py/projects/ini/looker.ini'
     config = ConfigParser.RawConfigParser(allow_no_value=True)
     config.read(ini_file)
 
@@ -152,17 +178,15 @@ if __name__ == "__main__":
         broken_content=x,
         space_data=space,
         base_url='https://34.94.160.95'
-        )
+    )
+    # print(broken_content[0])
 
-    # print(sendContentAlert(broken_content=broken_content))
+    print(sendContentAlert(broken_content=broken_content))
 
-    print(test(
-        user_id=5,
-        user_email='hseli',
-        plan_id=6,
-        content_id=45,
-        content_type='test'
-    ))
-    # print(test)
-    # df = pd.DataFrame(test)
-    # df.to_csv('output.csv')
+    # print(test(
+    #     user_id=5,
+    #     user_email='hseli',
+    #     plan_id=6,
+    #     content_id=45,
+    #     content_type='test'
+    # ))

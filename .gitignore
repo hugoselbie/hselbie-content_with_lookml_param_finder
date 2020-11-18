@@ -3,3 +3,6 @@ content_check.csv
 belvedere_test
 sys_activity_table.py
 test_findContent.py
+workspace.code-workspace
+.vscode/launch.json
+.vscode/settings.json
