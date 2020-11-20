@@ -90,7 +90,7 @@ def sendContentOnce(**kwargs):
         {
             "id": 10,
             "scheduled_plan_id": plan_id,
-            "format": "inline_json",
+            "format": "inline_visualizations",
             "address": f"{user_email}",
             "type": "email",
             "message": f"{message}",
@@ -98,7 +98,7 @@ def sendContentOnce(**kwargs):
     ]
     if content_type == 'dashboard':
         splan = models.WriteScheduledPlan(
-            name='test1',
+            name='Broken Content Alert ACTION: Requested',
             dashboard_id=content_id,
             user_id=user_id,
             require_no_results=False,
@@ -110,7 +110,7 @@ def sendContentOnce(**kwargs):
         sdk.scheduled_plan_run_once(body=splan)
     elif content_type == 'look':
         splan = models.WriteScheduledPlan(
-            name='test1',
+            name='Broken Content Alert ACTION: Requested',
             look_id=content_id,
             user_id=user_id,
             require_no_results=False,
@@ -119,7 +119,7 @@ def sendContentOnce(**kwargs):
             include_links=False,
             scheduled_plan_destination=plan_destination
         )
-        # sdk.scheduled_plan_run_once(body=splan)
+        sdk.scheduled_plan_run_once(body=splan)
 
     return f'notification for {content_id} has been sent to {user_email}'
 
@@ -130,19 +130,25 @@ def sendContentAlert(broken_content: list):
         logging.debug(broken_content[content]['content_type'])
         logging.debug(broken_content[content]['content_id'])
         if broken_content[content]['content_type'] == 'dashboard':
-            dashboard_metadata = sdk.dashboard(str(broken_content[content]['content_id']))
+            content_id = str(broken_content[content]['content_id'])
+            dashboard_metadata = sdk.dashboard(content_id)
             user_id = dashboard_metadata.user_id
             user_email = sdk.user(user_id=user_id).email
-            content_url = broken_content[content]['content_id']
+            content_url = broken_content[content]['url']
             logging.debug(f'variables set user_id:{user_id}, user_email:{user_email}, content_url {content_url}')
+
+            dashboard_message = f'''
+                please fix or delete your broken dashboard element on dashboard
+                {dashboard_metadata.title} at {content_url} or in folder id {dashboard_metadata.folder_id}.
+            '''
 
             sendContentOnce(
                 user_id=user_id,
                 user_email=user_email,
                 plan_id=content,
-                content_id=19,
-                content_type='dashboards',
-                message=f'please fix or delete your content {content_url}'
+                content_id=str(23),
+                content_type='dashboard',
+                message=dashboard_message
             )
 
         elif broken_content[content]['content_type'] == 'look':
@@ -150,14 +156,18 @@ def sendContentAlert(broken_content: list):
             user_id = look_metadata.user_id
             content_url = look_metadata.short_url
             user_email = sdk.user(user_id=user_id).email
-
+            
+            look_message = f'''
+                please fix or delete your broken dashboard element on dashboard
+                {look_metadata.title} at {content_url} or in folder id {look_metadata.folder_id}.
+            '''
             sendContentOnce(
                 user_id=user_id,
                 user_email=user_email,
                 plan_id=content,
-                content_id=5,
+                content_id=16,
                 content_type='look',
-                message=f'please fix or delete your content {content_url}'
+                message=look_message
             )
 
     return 'complete'
@@ -171,22 +181,13 @@ if __name__ == "__main__":
     github_token = config.get('Github', 'github_token')
     sdk = looker_sdk.init31(config_file=ini_file)
 
-    x = sdk.content_validation().content_with_errors
+    content_with_errors = sdk.content_validation().content_with_errors
     space = get_space_data()
 
     broken_content = parse_broken_content(
-        broken_content=x,
+        broken_content=content_with_errors,
         space_data=space,
-        base_url='https://34.94.160.95'
+        base_url='https://34.94.128.147:9999'
     )
-    # print(broken_content[0])
 
     print(sendContentAlert(broken_content=broken_content))
-
-    # print(test(
-    #     user_id=5,
-    #     user_email='hseli',
-    #     plan_id=6,
-    #     content_id=45,
-    #     content_type='test'
-    # ))
